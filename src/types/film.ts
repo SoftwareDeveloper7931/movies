@@ -17,6 +17,8 @@ export interface Film {
   industry: IndustryType;
   language?: string;
   imdb_rating?: number;
+  imdb_id?: string;
+  tmdb_id?: number | string;
   actors?: string[];
   featured?: boolean;
   downloads?: number;

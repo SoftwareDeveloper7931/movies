@@ -20,30 +20,71 @@ interface MoviePlayerProps {
   film: Film;
 }
 
-type ServerType = "youtube" | "cloud" | "vidsrc" | "archive";
+type ServerType = "vidsrc" | "multiembed" | "twoembed" | "vidsrcpro" | "archive";
 
 export function MoviePlayer({ film }: MoviePlayerProps) {
   const [isCopied, setIsCopied] = useState(false);
   const [theaterMode, setTheaterMode] = useState(false);
-  const [activeServer, setActiveServer] = useState<ServerType>("youtube");
-  const [isLoading, setIsLoading] = useState(true);
+  const isArchiveFilm = Boolean(film.ia_identifier && !film.ia_identifier.endsWith("_hd"));
 
-  // Generate multi-server stream URLs
-  const searchKeywords = `${film.title} ${film.year} full movie`;
-  
+  // Default to vidsrc
+  const [activeServer, setActiveServer] = useState<ServerType>("vidsrc");
+  const [isLoading, setIsLoading] = useState(true);
+  const [imdbId, setImdbId] = useState<string | null>(film.imdb_id || null);
+
+  // Dynamically resolve IMDb ID via Cinemeta if not already embedded
+  useEffect(() => {
+    let isMounted = true;
+    if (film.imdb_id) {
+      setImdbId(film.imdb_id);
+      return;
+    }
+
+    const cleanTitle = film.title.replace(/\s*\(\d{4}\)|\s*\([A-Za-z\s]+\)/g, "").trim();
+
+    fetch(`https://v3-cinemeta.strem.io/catalog/movie/top/search=${encodeURIComponent(cleanTitle)}.json`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isMounted) return;
+        if (data?.metas?.length > 0) {
+          const match =
+            data.metas.find((m: any) => m.releaseInfo == film.year || m.year == film.year) ||
+            data.metas[0];
+          const resolved = match.imdb_id || match.id;
+          if (resolved && resolved.startsWith("tt")) {
+            setImdbId(resolved);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not dynamically resolve IMDb ID:", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [film.title, film.year, film.imdb_id]);
+
+  const targetId = imdbId || film.id;
+
+  // Multi-server streaming endpoints (IMDb ID grounded)
   const serverUrls: Record<ServerType, string> = {
-    // Server 1: Instant YouTube HD Stream (0s buffering, real full feature film playback)
-    youtube: `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(searchKeywords)}&autoplay=1&rel=0`,
-    // Server 2: Fast Cloud HD MultiEmbed Player
-    cloud: `https://multiembed.mov/?video_id=${encodeURIComponent(film.title + ' ' + film.year)}&tmdb=1`,
-    // Server 3: Alternative Cloud Stream (2Embed / VidSrc)
-    vidsrc: `https://www.2embed.cc/embed/${encodeURIComponent(film.id)}`,
-    // Server 4: Official Internet Archive Embed
+    // Server 1: VidSrc Cloud (Verified 1080p stream)
+    vidsrc: `https://vidsrc.me/embed/movie?imdb=${targetId}`,
+    // Server 2: MultiEmbed HD (Multi-cloud mirror)
+    multiembed: `https://multiembed.mov/?video_id=${targetId}`,
+    // Server 3: 2Embed Engine (Reliable fallback)
+    twoembed: `https://www.2embed.cc/embed/${targetId}`,
+    // Server 4: VidSrc Prime (Alternative cloud player)
+    vidsrcpro: `https://vidsrc.pm/embed/movie?imdb=${targetId}`,
+    // Server 5: Internet Archive Embed (for verified archive items)
     archive: `https://archive.org/embed/${film.ia_identifier}?autoplay=1`,
   };
 
   const currentEmbedUrl = serverUrls[activeServer];
-  const sourceDetailsUrl = `https://archive.org/details/${film.ia_identifier}`;
+  const sourceDetailsUrl = isArchiveFilm
+    ? `https://archive.org/details/${film.ia_identifier}`
+    : `https://www.imdb.com/title/${targetId}/`;
 
   const handleServerChange = (server: ServerType) => {
     if (server !== activeServer) {
@@ -60,9 +101,17 @@ export function MoviePlayer({ film }: MoviePlayerProps) {
     }
   };
 
+  const serverNames: Record<ServerType, string> = {
+    vidsrc: "Server 1 (VidSrc HD)",
+    multiembed: "Server 2 (MultiEmbed)",
+    twoembed: "Server 3 (2Embed)",
+    vidsrcpro: "Server 4 (VidSrc Prime)",
+    archive: "Server 5 (Archive.org)",
+  };
+
   return (
     <div className={`w-full transition-all duration-300 ${theaterMode ? "max-w-6xl mx-auto" : "w-full"}`}>
-      {/* Streaming Server Selector (Moviespedia / HDToday standard) */}
+      {/* Streaming Server Selector */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5 px-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-bold text-cinema-300 uppercase tracking-wider flex items-center gap-1">
@@ -73,56 +122,71 @@ export function MoviePlayer({ film }: MoviePlayerProps) {
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
-              onClick={() => handleServerChange("youtube")}
+              onClick={() => handleServerChange("vidsrc")}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-md ${
-                activeServer === "youtube"
+                activeServer === "vidsrc"
                   ? "bg-amber-400 text-black shadow-amber-950/40 ring-1 ring-amber-300"
                   : "bg-cinema-850 hover:bg-cinema-750 text-cinema-200 border border-cinema-700"
               }`}
             >
-              <span className={`w-2 h-2 rounded-full ${activeServer === "youtube" ? "bg-emerald-700 animate-ping" : "bg-emerald-500"}`} />
-              <span>Server 1 (Fast HD Stream)</span>
+              <span className={`w-2 h-2 rounded-full ${activeServer === "vidsrc" ? "bg-emerald-700 animate-ping" : "bg-emerald-500"}`} />
+              <span>Server 1 (VidSrc HD)</span>
               <span className="text-[10px] px-1 py-0.2 rounded bg-black/20 font-mono">1080p</span>
             </button>
 
             <button
               type="button"
-              onClick={() => handleServerChange("cloud")}
+              onClick={() => handleServerChange("multiembed")}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-md ${
-                activeServer === "cloud"
+                activeServer === "multiembed"
                   ? "bg-amber-400 text-black shadow-amber-950/40 ring-1 ring-amber-300"
                   : "bg-cinema-850 hover:bg-cinema-750 text-cinema-200 border border-cinema-700"
               }`}
             >
-              <span className={`w-2 h-2 rounded-full ${activeServer === "cloud" ? "bg-emerald-700 animate-ping" : "bg-emerald-500"}`} />
-              <span>Server 2 (Cloud Stream)</span>
+              <span className={`w-2 h-2 rounded-full ${activeServer === "multiembed" ? "bg-emerald-700 animate-ping" : "bg-emerald-500"}`} />
+              <span>Server 2 (MultiEmbed)</span>
             </button>
 
             <button
               type="button"
-              onClick={() => handleServerChange("vidsrc")}
+              onClick={() => handleServerChange("twoembed")}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
-                activeServer === "vidsrc"
+                activeServer === "twoembed"
                   ? "bg-amber-400 text-black font-bold shadow-md shadow-amber-950/40"
                   : "bg-cinema-850 hover:bg-cinema-750 text-cinema-300 hover:text-white border border-cinema-700"
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-cinema-500" />
-              <span>Server 3 (VidSrc)</span>
+              <span>Server 3 (2Embed)</span>
             </button>
 
             <button
               type="button"
-              onClick={() => handleServerChange("archive")}
+              onClick={() => handleServerChange("vidsrcpro")}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
-                activeServer === "archive"
+                activeServer === "vidsrcpro"
                   ? "bg-amber-400 text-black font-bold shadow-md shadow-amber-950/40"
                   : "bg-cinema-850 hover:bg-cinema-750 text-cinema-300 hover:text-white border border-cinema-700"
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-cinema-500" />
-              <span>Server 4 (Archive.org)</span>
+              <span>Server 4 (VidSrc Prime)</span>
             </button>
+
+            {isArchiveFilm && (
+              <button
+                type="button"
+                onClick={() => handleServerChange("archive")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
+                  activeServer === "archive"
+                    ? "bg-amber-400 text-black font-bold shadow-md shadow-amber-950/40"
+                    : "bg-cinema-850 hover:bg-cinema-750 text-cinema-300 hover:text-white border border-cinema-700"
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-cinema-500" />
+                <span>Server 5 (Archive.org)</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -143,7 +207,7 @@ export function MoviePlayer({ film }: MoviePlayerProps) {
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-cinema-950/95 backdrop-blur-sm transition-opacity">
             <RefreshCw className="w-8 h-8 text-amber-400 animate-spin mb-3" />
             <span className="text-sm font-semibold text-white tracking-wide">
-              Connecting to {activeServer === "youtube" ? "Server 1 (Fast HD Stream)" : activeServer === "cloud" ? "Server 2 (Cloud Stream)" : "Streaming Server"}...
+              Connecting to {serverNames[activeServer]}...
             </span>
             <span className="text-xs text-cinema-400 mt-1">
               Loading {film.title} ({film.year})
@@ -153,11 +217,11 @@ export function MoviePlayer({ film }: MoviePlayerProps) {
 
         {/* Video Stream Iframe */}
         <iframe
-          key={`${activeServer}-${film.id}`}
+          key={`${activeServer}-${targetId}`}
           src={currentEmbedUrl}
           title={`${film.title} (${film.year}) - Stream`}
           className="w-full h-full border-0 absolute inset-0 z-0"
-          allow="fullscreen; autoplay; encrypted-media; picture-in-picture"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
           onLoad={() => setIsLoading(false)}
         />
@@ -167,11 +231,11 @@ export function MoviePlayer({ film }: MoviePlayerProps) {
       <div className="flex flex-wrap items-center justify-between gap-2 mt-2.5 px-2 py-1.5 rounded-lg bg-cinema-900/60 border border-cinema-800 text-xs text-cinema-400">
         <div className="flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-          <span>If any server is slow or audio-only, switch to <strong className="text-amber-400">Server 1</strong> or <strong className="text-amber-400">Server 2</strong> above.</span>
+          <span>If any server is slow, switch to <strong className="text-amber-400">Server 1</strong> or <strong className="text-amber-400">Server 2</strong> above.</span>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => handleServerChange(activeServer === "youtube" ? "cloud" : "youtube")}
+            onClick={() => handleServerChange(activeServer === "vidsrc" ? "multiembed" : "vidsrc")}
             className="text-amber-400 hover:text-amber-300 font-semibold underline text-[11px]"
           >
             Switch Server
@@ -233,7 +297,7 @@ export function MoviePlayer({ film }: MoviePlayerProps) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 hover:underline transition-colors"
             >
-              <span>Archive Catalog Page</span>
+              <span>{isArchiveFilm ? "Archive Catalog Page" : "IMDb Source Page"}</span>
               <ExternalLink className="w-3 h-3" />
             </a>
 

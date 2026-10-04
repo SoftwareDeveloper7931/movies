@@ -24,6 +24,8 @@ function sanitizeFilm(film: any): Film {
     industry: (film.industry as any) || "Hollywood",
     language: film.language || (film.industry === "Bollywood" ? "Hindi" : film.industry === "South Indian" ? "Tamil / Telugu" : "English"),
     imdb_rating: film.imdb_rating ? Number(film.imdb_rating) : undefined,
+    imdb_id: film.imdb_id || undefined,
+    tmdb_id: film.tmdb_id || undefined,
     actors: Array.isArray(film.actors) ? film.actors : undefined,
     featured: Boolean(film.featured),
     downloads: Number(film.downloads) || 0,
