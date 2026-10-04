@@ -1,6 +1,7 @@
 import React from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getBaseUrl } from "@/lib/site";
 import { AdSlot } from "@/components/AdSlot";
 import {
   ShieldCheck,
@@ -20,12 +21,13 @@ export const metadata: Metadata = {
 };
 
 export default function AboutPage() {
+  const siteUrl = getBaseUrl();
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "HD MOVIES",
-    "url": "https://hdmovies.vercel.app",
-    "logo": "https://hdmovies.vercel.app/logo.png",
+    "url": siteUrl,
+    "logo": `${siteUrl}/logo.png`,
     "description":
       "Non-commercial archival catalog indexing and streaming verified public domain films from the Internet Archive in high definition.",
   };

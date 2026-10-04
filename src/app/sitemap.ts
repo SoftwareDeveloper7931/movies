@@ -1,8 +1,9 @@
 import { MetadataRoute } from "next";
 import { getAllFilms } from "@/lib/db";
+import { getBaseUrl } from "@/lib/site";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://hdmovies.vercel.app";
+  const baseUrl = getBaseUrl();
 
   const films = await getAllFilms();
 

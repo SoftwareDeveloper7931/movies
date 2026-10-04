@@ -18,10 +18,10 @@ const outfit = Outfit({
   display: "swap",
 });
 
+import { getBaseUrl } from "@/lib/site";
+
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "https://hdmovies.vercel.app"
-  ),
+  metadataBase: new URL(getBaseUrl()),
   title: {
     default: "HD MOVIES — Free & Legal Public Domain Feature Films",
     template: "%s | HD MOVIES",
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://hdmovies.vercel.app",
+    url: getBaseUrl(),
     siteName: "HD MOVIES",
     title: "HD MOVIES — Watch Legal Public Domain Movies",
     description:

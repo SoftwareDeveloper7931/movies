@@ -8,6 +8,7 @@ import {
   getFilmsByIndustry,
   getAllFilms,
 } from "@/lib/db";
+import { getBaseUrl } from "@/lib/site";
 import { Film } from "@/types/film";
 import { MovieCard } from "@/components/MovieCard";
 import { AdSlot } from "@/components/AdSlot";
@@ -53,15 +54,16 @@ export default async function HomePage() {
 
   const heroFilm = featuredFilms[0] || hollywoodFilms[0];
 
+  const siteUrl = getBaseUrl();
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
     "name": "HD MOVIES",
-    "url": "https://hdmovies.vercel.app",
+    "url": siteUrl,
     "description": "Stream 1000+ legal free movies from Hollywood, Bollywood, and South Indian cinema in high definition.",
     "potentialAction": {
       "@type": "SearchAction",
-      "target": "https://hdmovies.vercel.app/search?q={search_term_string}",
+      "target": `${siteUrl}/search?q={search_term_string}`,
       "query-input": "required name=search_term_string",
     },
   };

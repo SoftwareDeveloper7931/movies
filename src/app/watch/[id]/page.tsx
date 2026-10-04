@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getFilmById, getRelatedFilms, getAllFilms } from "@/lib/db";
+import { getBaseUrl } from "@/lib/site";
 import { MoviePlayer } from "@/components/MoviePlayer";
 import { MovieCard } from "@/components/MovieCard";
 import { AdSlot } from "@/components/AdSlot";
@@ -94,7 +95,7 @@ export default async function WatchPage({ params }: WatchPageProps) {
     "isFamilyFriendly": true,
     "potentialAction": {
       "@type": "WatchAction",
-      "target": `https://hdmovies.vercel.app/watch/${film.id}`,
+      "target": `${getBaseUrl()}/watch/${film.id}`,
     },
     "publisher": {
       "@type": "Organization",
