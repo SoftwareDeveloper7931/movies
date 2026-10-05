@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useConsent } from "@/context/ConsentContext";
 import { Info } from "lucide-react";
 
@@ -66,18 +66,18 @@ const PLACEMENT_CONFIGS: Record<
 
 export function AdSlot({ placement, slotId, className = "" }: AdSlotProps) {
   const { consent } = useConsent();
-  const [adLoaded, setAdLoaded] = useState(false);
   const config = PLACEMENT_CONFIGS[placement];
 
   useEffect(() => {
     // Only load external ad scripts if the user gave explicit cookie consent
     if (consent === "accepted") {
       try {
-        // Example for Google AdSense / network push
-        if (typeof window !== "undefined" && (window as any).adsbygoogle) {
-          ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
+        if (typeof window !== "undefined") {
+          const win = window as unknown as { adsbygoogle?: unknown[] };
+          if (win.adsbygoogle) {
+            win.adsbygoogle.push({});
+          }
         }
-        setAdLoaded(true);
       } catch (e) {
         console.warn("Ad network initialization:", e);
       }

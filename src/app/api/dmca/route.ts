@@ -31,9 +31,10 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(result, { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to submit DMCA notice";
     return NextResponse.json(
-      { error: err.message || "Failed to submit DMCA notice" },
+      { error: message },
       { status: 500 }
     );
   }

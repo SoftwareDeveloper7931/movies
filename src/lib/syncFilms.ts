@@ -21,7 +21,7 @@ export function verifyPublicDomainLicense(item: {
   licenseurl?: string;
   rights?: string;
   description?: string;
-}): { isValid: boolean; licenseUrl: string; licenseName: string; rejectionReason?: string } {
+}): { isValid: boolean; licenseUrl: string; licenseName: string; licenseType?: "PD" | "CC BY" | "CC BY-SA" | "CC0"; rejectionReason?: string } {
   const licenseUrl = (item.licenseurl || "").toLowerCase().trim();
   const rights = (item.rights || "").toLowerCase().trim();
 
@@ -73,6 +73,7 @@ export function verifyPublicDomainLicense(item: {
       isValid: true,
       licenseUrl: "https://creativecommons.org/publicdomain/mark/1.0/",
       licenseName: "Public Domain Mark 1.0",
+      licenseType: "PD",
     };
   }
 
@@ -86,6 +87,7 @@ export function verifyPublicDomainLicense(item: {
       isValid: true,
       licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/",
       licenseName: "Creative Commons CC0 1.0 Universal",
+      licenseType: "CC0",
     };
   }
 
@@ -100,6 +102,7 @@ export function verifyPublicDomainLicense(item: {
       isValid: true,
       licenseUrl: licenseUrl || "https://creativecommons.org/publicdomain/mark/1.0/",
       licenseName: "Public Domain (Unrestricted)",
+      licenseType: "PD",
     };
   }
 
@@ -110,6 +113,7 @@ export function verifyPublicDomainLicense(item: {
         isValid: true,
         licenseUrl,
         licenseName: "Creative Commons Attribution (CC BY)",
+        licenseType: "CC BY",
       };
     }
     if (licenseUrl.includes("/by-sa/") && !licenseUrl.includes("/by-nc-sa")) {
@@ -117,6 +121,7 @@ export function verifyPublicDomainLicense(item: {
         isValid: true,
         licenseUrl,
         licenseName: "Creative Commons Attribution-ShareAlike (CC BY-SA)",
+        licenseType: "CC BY-SA",
       };
     }
   }
@@ -234,12 +239,13 @@ export async function syncFilmsFromInternetArchive(options: {
         runtime: doc.runtime || "Feature",
         license_url: licenseCheck.licenseUrl,
         license_name: licenseCheck.licenseName,
+        license_type: licenseCheck.licenseType || "PD",
         ia_identifier: doc.identifier,
         thumbnail: `https://archive.org/services/img/${doc.identifier}`,
         rights_checked: true, // Only added when verified
         genres: genres.slice(0, 4),
+        creator: Array.isArray(doc.creator) ? doc.creator[0] : doc.creator,
         director: Array.isArray(doc.creator) ? doc.creator[0] : doc.creator,
-        industry: "Hollywood",
         downloads: parseInt(doc.downloads, 10) || 0,
         updated_at: new Date().toISOString(),
       };
@@ -277,9 +283,10 @@ export async function syncFilmsFromInternetArchive(options: {
               license: licenseCheck.licenseName,
             });
           }
-        } catch (dbErr: any) {
+        } catch (dbErr: unknown) {
           result.errorCount++;
-          result.errors.push(`DB Exception on "${filmPayload.title}": ${dbErr.message}`);
+          const msg = dbErr instanceof Error ? dbErr.message : String(dbErr);
+          result.errors.push(`DB Exception on "${filmPayload.title}": ${msg}`);
         }
       } else {
         // When running in demo/offline mode
@@ -291,9 +298,10 @@ export async function syncFilmsFromInternetArchive(options: {
         });
       }
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     result.success = false;
-    result.errors.push(err.message || "Unknown error during sync");
+    const msg = err instanceof Error ? err.message : "Unknown error during sync";
+    result.errors.push(msg);
   }
 
   return result;

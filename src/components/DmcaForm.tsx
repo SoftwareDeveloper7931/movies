@@ -49,9 +49,10 @@ export function DmcaForm() {
 
       setTicketId(data.ticketId);
       setStatus("success");
-    } catch (err: any) {
+    } catch (err: unknown) {
       setStatus("error");
-      setErrorMessage(err.message || "An unexpected error occurred. Please email our agent directly.");
+      const msg = err instanceof Error ? err.message : "An unexpected error occurred. Please email our agent directly.";
+      setErrorMessage(msg);
     }
   };
 

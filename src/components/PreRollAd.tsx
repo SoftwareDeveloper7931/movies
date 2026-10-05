@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Play, Volume2, VolumeX, FastForward, Film } from "lucide-react";
+import { Volume2, VolumeX, FastForward, Film } from "lucide-react";
 
 interface PreRollAdProps {
   onComplete: () => void;

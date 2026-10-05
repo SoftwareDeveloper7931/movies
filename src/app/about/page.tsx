@@ -7,11 +7,7 @@ import {
   ShieldCheck,
   Clapperboard,
   BookOpen,
-  Film,
-  Lock,
   Globe2,
-  ExternalLink,
-  Award,
 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -64,9 +60,9 @@ export default function AboutPage() {
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <h2 className="text-base font-bold text-white">100% Free & Legal</h2>
+            <h2 className="text-base font-bold text-white">Verified Open Licenses</h2>
             <p className="text-xs text-cinema-300 leading-relaxed">
-              Every title undergoes automated and human rights screening. Only works with confirmed Public Domain or Creative Commons open licenses are shown.
+              Every title undergoes metadata and license validation against Internet Archive records. Only works with confirmed Public Domain or Creative Commons open licenses are included.
             </p>
           </div>
 

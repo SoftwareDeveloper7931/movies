@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { AdSlot } from "./AdSlot";
-import { Clapperboard, ShieldCheck, Heart, ExternalLink } from "lucide-react";
+import { ShieldCheck, ExternalLink } from "lucide-react";
 
 export function Footer() {
   return (
@@ -34,7 +34,7 @@ export function Footer() {
             </p>
             <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
               <ShieldCheck className="w-4 h-4" />
-              <span>100% Legal & Open License</span>
+              <span>Verified Open License Archive</span>
             </div>
           </div>
 

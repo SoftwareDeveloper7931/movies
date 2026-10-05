@@ -11,13 +11,11 @@ import {
   Calendar,
   Clock,
   User,
-  ShieldCheck,
-  Tag,
+  Scale,
   ArrowLeft,
-  Share2,
   ExternalLink,
   Film as FilmIcon,
-  Star,
+  AlertTriangle,
 } from "lucide-react";
 
 interface WatchPageProps {
@@ -41,8 +39,8 @@ export async function generateMetadata({ params }: WatchPageProps): Promise<Meta
     };
   }
 
-  const title = `Watch ${film.title} (${film.year}) Free — Public Domain Movie`;
-  const description = `Stream ${film.title} (${film.year}) free and legally. ${film.description.slice(0, 150)}... Open license: ${film.license_name}.`;
+  const title = `Watch ${film.title} (${film.year}) — ${film.license_name || "Internet Archive Film"}`;
+  const description = `Stream ${film.title} (${film.year}) from the Internet Archive collection under license: ${film.license_name || film.license_type || "Public Domain"}.`;
 
   return {
     title,
@@ -79,7 +77,7 @@ export default async function WatchPage({ params }: WatchPageProps) {
 
   const relatedFilms = await getRelatedFilms(film.id, film.genres, 6);
 
-  // Schema.org Movie structured data for Google Rich Results
+  // Schema.org Movie structured data
   const movieJsonLd = {
     "@context": "https://schema.org",
     "@type": "Movie",
@@ -90,6 +88,7 @@ export default async function WatchPage({ params }: WatchPageProps) {
     "datePublished": `${film.year}-01-01`,
     "duration": film.runtime,
     "director": film.director ? { "@type": "Person", "name": film.director } : undefined,
+    "creator": film.creator ? { "@type": "Person", "name": film.creator } : undefined,
     "genre": film.genres,
     "license": film.license_url,
     "isFamilyFriendly": true,
@@ -104,6 +103,14 @@ export default async function WatchPage({ params }: WatchPageProps) {
     },
     "embedUrl": `https://archive.org/embed/${film.ia_identifier}`,
   };
+
+  const licenseColorMap: Record<string, string> = {
+    PD: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    CC0: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    "CC BY": "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    "CC BY-SA": "bg-purple-500/15 text-purple-400 border-purple-500/30",
+  };
+  const licenseBadgeClass = licenseColorMap[film.license_type] || licenseColorMap.PD;
 
   return (
     <div className="w-full pb-16">
@@ -124,7 +131,7 @@ export default async function WatchPage({ params }: WatchPageProps) {
             <span>Back to Browse</span>
           </Link>
           <div className="flex items-center gap-2">
-            <span>Home</span>
+            <span>Archive</span>
             <span>/</span>
             <span>Watch</span>
             <span>/</span>
@@ -152,16 +159,11 @@ export default async function WatchPage({ params }: WatchPageProps) {
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-display">
                       {film.title}
                     </h1>
-                    <span className="px-2 py-0.5 rounded bg-amber-400 text-black text-xs font-extrabold tracking-wider shadow-sm">
-                      HD
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${licenseBadgeClass}`}>
+                      {film.license_type || "PD"}
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-cinema-400">
-                    <span className="flex items-center gap-1 text-amber-400 font-semibold">
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                      4.8 / 5.0
-                    </span>
-                    <span>&bull;</span>
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5 text-cinema-400" />
                       {film.year}
@@ -171,12 +173,12 @@ export default async function WatchPage({ params }: WatchPageProps) {
                       <Clock className="w-3.5 h-3.5 text-cinema-400" />
                       {film.runtime}
                     </span>
-                    {film.director && (
+                    {(film.creator || film.director) && (
                       <>
                         <span>&bull;</span>
                         <span className="flex items-center gap-1">
                           <User className="w-3.5 h-3.5 text-cinema-400" />
-                          Directed by {film.director}
+                          <span>Creator: <strong className="text-cinema-200">{film.creator || film.director}</strong></span>
                         </span>
                       </>
                     )}
@@ -184,10 +186,15 @@ export default async function WatchPage({ params }: WatchPageProps) {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    Verified Public Domain
-                  </span>
+                  <a
+                    href={film.license_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 border ${licenseBadgeClass}`}
+                  >
+                    <Scale className="w-3.5 h-3.5" />
+                    <span>{film.license_name || film.license_type}</span>
+                  </a>
                 </div>
               </div>
 
@@ -218,18 +225,24 @@ export default async function WatchPage({ params }: WatchPageProps) {
               {/* Metadata details table */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 border-t border-cinema-800 text-xs">
                 <div>
-                  <span className="text-cinema-400 block mb-0.5">Internet Archive Identifier</span>
-                  <code className="text-cinema-200 bg-cinema-950 px-2 py-1 rounded border border-cinema-800">
-                    {film.ia_identifier}
-                  </code>
+                  <span className="text-cinema-400 block mb-0.5">Archive Identifier</span>
+                  <a
+                    href={`https://archive.org/details/${film.ia_identifier}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-amber-400 hover:underline flex items-center gap-1"
+                  >
+                    <code>{film.ia_identifier}</code>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
                 </div>
                 <div>
-                  <span className="text-cinema-400 block mb-0.5">License URL</span>
+                  <span className="text-cinema-400 block mb-0.5">Verified License</span>
                   <a
                     href={film.license_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-rose-400 hover:underline truncate block"
+                    className="text-emerald-400 hover:underline truncate block"
                   >
                     {film.license_url}
                   </a>
@@ -238,22 +251,28 @@ export default async function WatchPage({ params }: WatchPageProps) {
             </div>
           </div>
 
-          {/* Sidebar Column (Desktop Ads + Quick Info) */}
+          {/* Sidebar Column */}
           <aside className="lg:col-span-4 space-y-6">
             {/* Desktop Sidebar Ad Slot */}
             <div className="hidden lg:block">
               <AdSlot placement="sidebar" />
             </div>
 
-            {/* Archival Information Card */}
+            {/* Archival Provenance Card */}
             <div className="p-5 rounded-2xl bg-cinema-900 border border-cinema-800/80 space-y-3.5 text-xs text-cinema-300">
               <div className="flex items-center gap-2 text-cinema-100 font-semibold text-sm">
-                <FilmIcon className="w-4 h-4 text-rose-500" />
-                <span>Archival Provenance</span>
+                <FilmIcon className="w-4 h-4 text-amber-400" />
+                <span>Archive Provenance</span>
               </div>
               <p className="leading-relaxed">
-                This recording is preserved in the <strong className="text-white">feature_films</strong> collection of the Internet Archive. Public domain status allows worldwide streaming, educational use, and remixing under open cultural licensing.
+                This recording is preserved in the Internet Archive collection. It is indexed and streamed via the official archive embed player under open cultural licensing ({film.license_type || "PD"}).
               </p>
+              {film.creator && (
+                <div className="p-2.5 rounded-lg bg-cinema-950/80 border border-cinema-800">
+                  <span className="text-cinema-400 block text-[11px]">Attribution Notice:</span>
+                  <span className="text-cinema-200 font-medium">{film.creator}</span>
+                </div>
+              )}
               <div className="pt-2 border-t border-cinema-800 flex flex-col gap-2">
                 <a
                   href={`https://archive.org/details/${film.ia_identifier}`}
@@ -267,9 +286,10 @@ export default async function WatchPage({ params }: WatchPageProps) {
 
                 <Link
                   href={`/dmca?film=${encodeURIComponent(film.title)}&id=${encodeURIComponent(film.ia_identifier)}`}
-                  className="text-center text-[11px] text-cinema-400 hover:text-rose-400 pt-1 transition-colors"
+                  className="text-center text-[11px] text-cinema-400 hover:text-rose-400 pt-1 transition-colors flex items-center justify-center gap-1"
                 >
-                  Have copyright questions? Submit DMCA Inquiry
+                  <AlertTriangle className="w-3 h-3 text-amber-500/80" />
+                  <span>Report a problem / DMCA</span>
                 </Link>
               </div>
             </div>
@@ -287,15 +307,15 @@ export default async function WatchPage({ params }: WatchPageProps) {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                  More Films You Might Enjoy
+                  More Preserved Films
                 </h2>
                 <p className="text-xs text-cinema-400 mt-0.5">
-                  Similar genres and eras from our public domain vault
+                  Similar genres from the Internet Archive
                 </p>
               </div>
               <Link
                 href={`/browse?genre=${encodeURIComponent(film.genres[0] || "Classic")}`}
-                className="text-xs font-semibold text-rose-400 hover:text-rose-300 transition-colors"
+                className="text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors"
               >
                 Browse more {film.genres[0]}
               </Link>

@@ -1,44 +1,41 @@
-import { Film, GenreType, DecadeType, DmcaRequest } from "@/types/film";
+import { Film, LicenseType, DmcaRequest } from "@/types/film";
 import { SEED_FILMS } from "@/data/seedFilms";
 import { supabaseAdmin, isSupabaseConfigured } from "./supabase";
 
 /**
  * Normalizes and ensures rights_checked is strictly true.
- * As per specification: "Only show films where rights_checked is true."
+ * Verified open licensed motion pictures only.
  */
-function sanitizeFilm(film: any): Film {
+function sanitizeFilm(film: Partial<Film> | Record<string, unknown>): Film {
+  const f = film as Record<string, unknown>;
+  const iaId = (f.ia_identifier as string) || (f.id as string) || "";
   return {
-    id: film.id || film.ia_identifier,
-    title: film.title,
-    year: Number(film.year) || 1930,
-    description: film.description || "No synopsis available for this public domain archive work.",
-    runtime: film.runtime || "Feature",
-    license_url: film.license_url || "https://creativecommons.org/publicdomain/mark/1.0/",
-    license_name: film.license_name || "Public Domain Mark 1.0",
-    ia_identifier: film.ia_identifier,
-    thumbnail: film.thumbnail || film.posterUrl || `https://archive.org/services/img/${film.ia_identifier}`,
-    backdrop: film.backdrop || undefined,
-    rights_checked: Boolean(film.rights_checked),
-    genres: Array.isArray(film.genres) ? film.genres : ["Classic"],
-    director: film.director || undefined,
-    industry: (film.industry as any) || "Hollywood",
-    language: film.language || (film.industry === "Bollywood" ? "Hindi" : film.industry === "South Indian" ? "Tamil / Telugu" : "English"),
-    imdb_rating: film.imdb_rating ? Number(film.imdb_rating) : undefined,
-    imdb_id: film.imdb_id || undefined,
-    tmdb_id: film.tmdb_id || undefined,
-    actors: Array.isArray(film.actors) ? film.actors : undefined,
-    featured: Boolean(film.featured),
-    downloads: Number(film.downloads) || 0,
-    created_at: film.created_at || new Date().toISOString(),
-    updated_at: film.updated_at || new Date().toISOString(),
+    id: (f.id as string) || iaId,
+    title: (f.title as string) || "Untitled Archive Film",
+    year: Number(f.year) || 1940,
+    description: (f.description as string) || "Preserved motion picture in the Internet Archive collection.",
+    runtime: (f.runtime as string) || "Feature",
+    license_url: (f.license_url as string) || "https://creativecommons.org/publicdomain/mark/1.0/",
+    license_name: (f.license_name as string) || "Public Domain Mark 1.0",
+    license_type: (f.license_type as LicenseType) || "PD",
+    creator: (f.creator as string) || (f.director as string) || undefined,
+    director: (f.director as string) || (f.creator as string) || undefined,
+    ia_identifier: iaId,
+    thumbnail: (f.thumbnail as string) || `https://archive.org/services/img/${iaId}`,
+    backdrop: (f.backdrop as string) || undefined,
+    rights_checked: Boolean(f.rights_checked),
+    genres: Array.isArray(f.genres) && f.genres.length > 0 ? (f.genres as string[]) : ["Classic"],
+    featured: Boolean(f.featured),
+    downloads: Number(f.downloads) || 0,
+    created_at: (f.created_at as string) || new Date().toISOString(),
+    updated_at: (f.updated_at as string) || new Date().toISOString(),
   };
 }
 
 export async function getAllFilms(): Promise<Film[]> {
-  // Always initialize with verified 1,100+ Hollywood, Bollywood, and South Indian catalog
   const filmMap = new Map<string, Film>();
   SEED_FILMS.filter((f) => f.rights_checked).forEach((film) => {
-    filmMap.set(film.id, film);
+    filmMap.set(film.id, sanitizeFilm(film));
   });
 
   if (isSupabaseConfigured && supabaseAdmin) {
@@ -47,15 +44,15 @@ export async function getAllFilms(): Promise<Film[]> {
         .from("films")
         .select("*")
         .eq("rights_checked", true)
-        .order("created_at", { ascending: false });
+        .order("downloads", { ascending: false });
 
       if (!error && data && data.length > 0) {
-        data.map(sanitizeFilm).forEach((film) => {
+        data.map((item) => sanitizeFilm(item as Record<string, unknown>)).forEach((film) => {
           filmMap.set(film.id, film);
         });
       }
     } catch (err) {
-      console.warn("Supabase fetch failed, relying on seed catalog:", err);
+      console.warn("Supabase fetch failed, relying on verified catalog:", err);
     }
   }
 
@@ -65,7 +62,7 @@ export async function getAllFilms(): Promise<Film[]> {
 export async function getFeaturedFilms(): Promise<Film[]> {
   const films = await getAllFilms();
   const featured = films.filter((f) => f.featured);
-  return featured.length > 0 ? featured : films.slice(0, 3);
+  return featured.length > 0 ? featured : films.slice(0, 4);
 }
 
 export async function getRecentlyAddedFilms(limit = 10): Promise<Film[]> {
@@ -82,14 +79,6 @@ export async function getPopularFilms(limit = 10): Promise<Film[]> {
     .slice(0, limit);
 }
 
-export async function getFilmsByIndustry(industry: string, limit?: number): Promise<Film[]> {
-  const films = await getAllFilms();
-  const filtered = films.filter((f) =>
-    f.industry.toLowerCase() === industry.toLowerCase()
-  );
-  return limit ? filtered.slice(0, limit) : filtered;
-}
-
 export async function getFilmsByGenre(genre: string, limit?: number): Promise<Film[]> {
   const films = await getAllFilms();
   const filtered = films.filter((f) =>
@@ -104,6 +93,14 @@ export async function getFilmsByDecade(decade: string, limit?: number): Promise<
   const endYear = startYear + 9;
 
   const filtered = films.filter((f) => f.year >= startYear && f.year <= endYear);
+  return limit ? filtered.slice(0, limit) : filtered;
+}
+
+export async function getFilmsByLicense(licenseType: string, limit?: number): Promise<Film[]> {
+  const films = await getAllFilms();
+  const filtered = films.filter((f) =>
+    f.license_type?.toLowerCase() === licenseType.toLowerCase()
+  );
   return limit ? filtered.slice(0, limit) : filtered;
 }
 
@@ -127,13 +124,13 @@ export async function getRelatedFilms(currentId: string, genres: string[], limit
   const current = films.find((f) => f.id === currentId || f.ia_identifier === currentId);
   const candidates = films.filter((f) => f.id !== currentId && f.ia_identifier !== currentId);
 
-  // Score candidates by industry and genre match
+  // Score candidates by genre match and license proximity
   const scored = candidates.map((film) => {
     let score = 0;
-    if (current && film.industry === current.industry) score += 3;
     for (const g of genres) {
-      if (film.genres.includes(g)) score += 2;
+      if (film.genres.includes(g)) score += 3;
     }
+    if (current && Math.abs(film.year - current.year) <= 10) score += 2;
     return { film, score };
   });
 
@@ -144,7 +141,7 @@ export async function getRelatedFilms(currentId: string, genres: string[], limit
 export interface SearchOptions {
   genre?: string;
   decade?: string;
-  industry?: string;
+  license?: string;
   sortBy?: "recent" | "year_desc" | "year_asc" | "title" | "popular";
 }
 
@@ -157,16 +154,11 @@ export async function searchFilms(query?: string, options: SearchOptions = {}): 
       (f) =>
         f.title.toLowerCase().includes(q) ||
         f.description.toLowerCase().includes(q) ||
+        (f.creator && f.creator.toLowerCase().includes(q)) ||
         (f.director && f.director.toLowerCase().includes(q)) ||
-        (f.language && f.language.toLowerCase().includes(q)) ||
-        f.industry.toLowerCase().includes(q) ||
+        f.license_name.toLowerCase().includes(q) ||
+        (f.license_type && f.license_type.toLowerCase().includes(q)) ||
         f.genres.some((g) => g.toLowerCase().includes(q))
-    );
-  }
-
-  if (options.industry && options.industry !== "all") {
-    films = films.filter((f) =>
-      f.industry.toLowerCase() === options.industry!.toLowerCase()
     );
   }
 
@@ -182,9 +174,17 @@ export async function searchFilms(query?: string, options: SearchOptions = {}): 
     films = films.filter((f) => f.year >= startYear && f.year <= endYear);
   }
 
+  if (options.license && options.license !== "all") {
+    films = films.filter((f) =>
+      f.license_type?.toLowerCase() === options.license!.toLowerCase()
+    );
+  }
+
   switch (options.sortBy) {
-    case "popular":
-      films.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
+    case "recent":
+      films.sort(
+        (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      );
       break;
     case "year_desc":
       films.sort((a, b) => b.year - a.year);
@@ -195,11 +195,9 @@ export async function searchFilms(query?: string, options: SearchOptions = {}): 
     case "title":
       films.sort((a, b) => a.title.localeCompare(b.title));
       break;
-    case "recent":
+    case "popular":
     default:
-      films.sort(
-        (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-      );
+      films.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
       break;
   }
 

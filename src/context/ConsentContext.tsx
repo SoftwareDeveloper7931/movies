@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useState, useSyncExternalStore } from "react";
 
 type ConsentStatus = "pending" | "accepted" | "declined";
 
@@ -15,42 +15,54 @@ interface ConsentContextType {
 
 const ConsentContext = createContext<ConsentContextType | undefined>(undefined);
 
-export function ConsentProvider({ children }: { children: React.ReactNode }) {
-  const [consent, setConsent] = useState<ConsentStatus>("pending");
-  const [showModal, setShowModal] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
+function subscribe(callback: () => void) {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener("storage", callback);
+  window.addEventListener("cookie_consent_updated", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("cookie_consent_updated", callback);
+  };
+}
 
-  useEffect(() => {
-    setIsMounted(true);
-    const stored = localStorage.getItem("hdmovies_cookie_consent");
-    if (stored === "accepted" || stored === "declined") {
-      setConsent(stored);
-    } else {
-      setShowModal(true);
-    }
-  }, []);
+function getSnapshot(): ConsentStatus {
+  if (typeof window === "undefined") return "pending";
+  const stored = localStorage.getItem("hdmovies_cookie_consent");
+  if (stored === "accepted" || stored === "declined") {
+    return stored;
+  }
+  return "pending";
+}
+
+function getServerSnapshot(): ConsentStatus {
+  return "pending";
+}
+
+export function ConsentProvider({ children }: { children: React.ReactNode }) {
+  const consent = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const [explicitModalOpen, setExplicitModalOpen] = useState(false);
+  const [explicitModalClosed, setExplicitModalClosed] = useState(false);
+
+  const showModal = (consent === "pending" || explicitModalOpen) && !explicitModalClosed;
 
   const acceptConsent = () => {
     localStorage.setItem("hdmovies_cookie_consent", "accepted");
-    setConsent("accepted");
-    setShowModal(false);
-    // Dispatch event for any analytics/ad scripts
     window.dispatchEvent(new CustomEvent("cookie_consent_updated", { detail: { consent: "accepted" } }));
   };
 
   const declineConsent = () => {
     localStorage.setItem("hdmovies_cookie_consent", "declined");
-    setConsent("declined");
-    setShowModal(false);
     window.dispatchEvent(new CustomEvent("cookie_consent_updated", { detail: { consent: "declined" } }));
   };
 
   const openSettings = () => {
-    setShowModal(true);
+    setExplicitModalClosed(false);
+    setExplicitModalOpen(true);
   };
 
   const closeModal = () => {
-    setShowModal(false);
+    setExplicitModalOpen(false);
+    setExplicitModalClosed(true);
   };
 
   return (
@@ -60,7 +72,7 @@ export function ConsentProvider({ children }: { children: React.ReactNode }) {
         acceptConsent,
         declineConsent,
         openSettings,
-        showModal: isMounted && showModal,
+        showModal,
         closeModal,
       }}
     >

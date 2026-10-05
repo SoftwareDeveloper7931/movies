@@ -2,7 +2,7 @@ import React, { Suspense } from "react";
 import type { Metadata } from "next";
 import { DmcaForm } from "@/components/DmcaForm";
 import { AdSlot } from "@/components/AdSlot";
-import { ShieldAlert, Mail, Clock, FileText, CheckCircle2 } from "lucide-react";
+import { ShieldAlert, Mail, Clock, FileText } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "DMCA & Copyright Takedown Policy",

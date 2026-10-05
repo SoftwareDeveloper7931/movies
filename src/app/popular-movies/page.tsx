@@ -1,34 +1,55 @@
 import React from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getPopularFilms, getAllFilms } from "@/lib/db";
+import { getAllFilms } from "@/lib/db";
 import { MovieCard } from "@/components/MovieCard";
 import { AdSlot } from "@/components/AdSlot";
-import { Sparkles, TrendingUp, Flame } from "lucide-react";
+import { Flame, Sparkles } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Popular Movies — HD MOVIES Most Watched",
+  title: "Popular Movies — Most Watched Public Domain Films",
   description:
-    "Discover the most watched, highest-downloaded public domain and open license feature films.",
+    "Discover the most watched, highest-downloaded public domain and open license feature films from Internet Archive.",
 };
 
 interface PopularPageProps {
-  searchParams: Promise<{ industry?: string }>;
+  searchParams: Promise<{ genre?: string; license?: string }>;
 }
+
+const POPULAR_GENRES = [
+  "All",
+  "Comedy",
+  "Drama",
+  "Horror",
+  "Thriller",
+  "Fantasy",
+  "Adventure",
+  "Silent",
+  "Mystery",
+  "Western",
+];
 
 export default async function PopularMoviesPage({ searchParams }: PopularPageProps) {
   const resolvedParams = await searchParams;
-  const currentIndustry = resolvedParams.industry || "All";
+  const currentGenre = resolvedParams.genre || "All";
+  const currentLicense = resolvedParams.license || "All";
 
   const allFilms = await getAllFilms();
-  const filtered = currentIndustry === "All"
-    ? allFilms
-    : allFilms.filter(f => f.industry.toLowerCase() === currentIndustry.toLowerCase());
+
+  let filtered = allFilms;
+  if (currentGenre !== "All") {
+    filtered = filtered.filter((f) =>
+      f.genres.some((g) => g.toLowerCase() === currentGenre.toLowerCase())
+    );
+  }
+  if (currentLicense !== "All") {
+    filtered = filtered.filter(
+      (f) => f.license_type?.toLowerCase() === currentLicense.toLowerCase()
+    );
+  }
 
   // Sort by downloads descending
   const popularFilms = [...filtered].sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
-
-  const industries = ["All", "Hollywood", "Bollywood", "South Indian"];
 
   return (
     <div className="w-full pb-16">
@@ -46,10 +67,10 @@ export default async function PopularMoviesPage({ searchParams }: PopularPagePro
               <span>Trending & Popular</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-display">
-              {currentIndustry !== "All" ? `Popular ${currentIndustry} Movies` : "Popular Feature Films"}
+              {currentGenre !== "All" ? `Popular ${currentGenre} Films` : "Popular Archival Feature Films"}
             </h1>
             <p className="text-xs text-cinema-400 mt-1">
-              The most downloaded, streamed, and acclaimed movies across Hollywood, Bollywood, and South Indian cinema
+              The most downloaded and watched films in the Internet Archive collection with verified open licenses
             </p>
           </div>
 
@@ -63,37 +84,48 @@ export default async function PopularMoviesPage({ searchParams }: PopularPagePro
           </div>
         </div>
 
-        {/* Industry Filter Pills */}
+        {/* Genre Filter Pills */}
         <div className="flex flex-wrap gap-2 mb-8">
-          {industries.map((ind) => {
-            const isActive = currentIndustry === ind;
-            const badgeClass =
-              ind === "Bollywood"
-                ? isActive ? "bg-emerald-400 text-black font-bold shadow-md shadow-emerald-950/40" : "bg-emerald-950/40 text-emerald-300 border border-emerald-800 hover:bg-emerald-900/50"
-                : ind === "South Indian"
-                ? isActive ? "bg-purple-400 text-black font-bold shadow-md shadow-purple-950/40" : "bg-purple-950/40 text-purple-300 border border-purple-800 hover:bg-purple-900/50"
-                : ind === "Hollywood"
-                ? isActive ? "bg-amber-400 text-black font-bold shadow-md shadow-amber-950/40" : "bg-amber-950/40 text-amber-300 border border-amber-800 hover:bg-amber-900/50"
-                : isActive ? "bg-white text-black font-bold shadow-md" : "bg-cinema-850 hover:bg-cinema-750 text-cinema-300 border border-cinema-750";
-
+          {POPULAR_GENRES.map((genre) => {
+            const isActive = currentGenre === genre;
             return (
               <Link
-                key={ind}
-                href={ind === "All" ? "/popular-movies" : `/popular-movies?industry=${encodeURIComponent(ind)}`}
-                className={`text-xs px-3.5 py-1.5 rounded-lg transition-colors font-semibold ${badgeClass}`}
+                key={genre}
+                href={genre === "All" ? "/popular-movies" : `/popular-movies?genre=${encodeURIComponent(genre)}`}
+                className={`text-xs px-3.5 py-1.5 rounded-lg transition-colors font-semibold ${
+                  isActive
+                    ? "bg-amber-400 text-black font-bold shadow-md shadow-amber-950/40"
+                    : "bg-cinema-850 hover:bg-cinema-750 text-cinema-300 border border-cinema-750"
+                }`}
               >
-                {ind}
+                {genre}
               </Link>
             );
           })}
         </div>
 
         {/* Popular Movie Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-          {popularFilms.slice(0, 48).map((film, index) => (
-            <MovieCard key={film.id} film={film} priority={index < 6} />
-          ))}
-        </div>
+        {popularFilms.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+            {popularFilms.slice(0, 48).map((film, index) => (
+              <MovieCard key={film.id} film={film} priority={index < 6} />
+            ))}
+          </div>
+        ) : (
+          <div className="p-12 rounded-2xl bg-cinema-900 border border-cinema-800 text-center space-y-3">
+            <Sparkles className="w-10 h-10 text-cinema-500 mx-auto" />
+            <h3 className="text-base font-bold text-white">No films in this category</h3>
+            <p className="text-xs text-cinema-400">
+              Try selecting another genre or view all popular titles.
+            </p>
+            <Link
+              href="/popular-movies"
+              className="inline-block px-4 py-2 rounded-xl bg-amber-400 text-black text-xs font-bold"
+            >
+              View All Popular
+            </Link>
+          </div>
+        )}
 
         {/* Ad Placement */}
         <div className="my-10">

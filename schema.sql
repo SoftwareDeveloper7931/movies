@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS films (
     runtime TEXT,
     license_url TEXT NOT NULL,
     license_name TEXT NOT NULL DEFAULT 'Public Domain Mark 1.0',
+    license_type TEXT NOT NULL DEFAULT 'PD',
+    creator TEXT,
     ia_identifier TEXT UNIQUE NOT NULL,
     thumbnail TEXT,
     backdrop TEXT,

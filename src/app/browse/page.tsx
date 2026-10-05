@@ -4,41 +4,40 @@ import Link from "next/link";
 import { searchFilms, SearchOptions } from "@/lib/db";
 import { MovieCard } from "@/components/MovieCard";
 import { AdSlot } from "@/components/AdSlot";
-import { Filter, Search, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
+import { Filter, Search, RotateCcw, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Browse Movies — HD MOVIES Catalog",
+  title: "Browse Archival Films — HD MOVIES Catalog",
   description:
-    "Explore our complete vault of verified public domain and open license films. Filter by genre, decade, or title.",
+    "Explore our complete vault of verified public domain and open license films from Internet Archive. Filter by genre, decade, or license type.",
 };
 
 interface BrowsePageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-const INDUSTRIES = ["All", "Hollywood", "Bollywood", "South Indian"];
+const LICENSES = ["All", "PD", "CC0", "CC BY", "CC BY-SA"];
 
 const GENRES = [
   "All",
-  "Action",
   "Comedy",
   "Drama",
-  "Crime",
-  "Thriller",
-  "Romance",
-  "Sci-Fi",
   "Horror",
+  "Thriller",
+  "Fantasy",
   "Adventure",
   "Mystery",
-  "Film Noir",
-  "Cult",
+  "Crime",
+  "Western",
+  "Silent",
+  "Sci-Fi",
 ];
 
-const DECADES = ["All", "2020s", "2010s", "2000s", "1990s", "1980s", "1970s", "1960s", "1950s"];
+const DECADES = ["All", "1910s", "1920s", "1930s", "1940s", "1950s", "1960s", "1970s"];
 
 const SORT_OPTIONS = [
+  { label: "Most Downloaded", value: "popular" },
   { label: "Recently Added", value: "recent" },
-  { label: "Most Popular", value: "popular" },
   { label: "Release Year (Newest)", value: "year_desc" },
   { label: "Release Year (Oldest)", value: "year_asc" },
   { label: "Title (A-Z)", value: "title" },
@@ -47,39 +46,38 @@ const SORT_OPTIONS = [
 export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   const resolvedParams = await searchParams;
 
-  const currentIndustry = typeof resolvedParams.industry === "string" ? resolvedParams.industry : "All";
   const currentGenre = typeof resolvedParams.genre === "string" ? resolvedParams.genre : "All";
   const currentDecade = typeof resolvedParams.decade === "string" ? resolvedParams.decade : "All";
-  const currentSort = (typeof resolvedParams.sort === "string" ? resolvedParams.sort : "recent") as SearchOptions["sortBy"];
+  const currentLicense = typeof resolvedParams.license === "string" ? resolvedParams.license : "All";
+  const currentSort = (typeof resolvedParams.sort === "string" ? resolvedParams.sort : "popular") as SearchOptions["sortBy"];
   const currentQuery = typeof resolvedParams.q === "string" ? resolvedParams.q : "";
   const currentPage = Math.max(1, parseInt(typeof resolvedParams.page === "string" ? resolvedParams.page : "1", 10) || 1);
 
   const films = await searchFilms(currentQuery, {
-    industry: currentIndustry === "All" ? undefined : currentIndustry,
     genre: currentGenre === "All" ? undefined : currentGenre,
     decade: currentDecade === "All" ? undefined : currentDecade,
+    license: currentLicense === "All" ? undefined : currentLicense,
     sortBy: currentSort,
   });
 
-  // Pagination (24 films per page, Moviespedia style)
   const pageSize = 24;
   const totalPages = Math.ceil(films.length / pageSize) || 1;
   const paginatedFilms = films.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const hasActiveFilters =
-    currentIndustry !== "All" ||
     currentGenre !== "All" ||
     currentDecade !== "All" ||
-    currentSort !== "recent" ||
+    currentLicense !== "All" ||
+    currentSort !== "popular" ||
     Boolean(currentQuery);
 
   const buildUrl = (overrideParams: Record<string, string | number | undefined>) => {
     const params = new URLSearchParams();
     if (currentQuery) params.set("q", currentQuery);
-    if (currentIndustry !== "All") params.set("industry", currentIndustry);
     if (currentGenre !== "All") params.set("genre", currentGenre);
     if (currentDecade !== "All") params.set("decade", currentDecade);
-    if (currentSort && currentSort !== "recent") params.set("sort", currentSort);
+    if (currentLicense !== "All") params.set("license", currentLicense);
+    if (currentSort && currentSort !== "popular") params.set("sort", currentSort);
     if (currentPage > 1) params.set("page", currentPage.toString());
 
     Object.entries(overrideParams).forEach(([k, v]) => {
@@ -102,19 +100,27 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-        {/* Page Title & Intro (Moviespedia Header Style) */}
+        {/* Page Title & Intro */}
         <div className="border-b border-cinema-800 pb-5 mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-amber-400/10 border border-amber-400/30 text-amber-400 text-xs font-bold uppercase tracking-wider mb-1.5">
-              <span>HD Movies Catalog</span>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-emerald-400/10 border border-emerald-400/30 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Internet Archive Catalog</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-display">
-              {currentIndustry !== "All" ? `${currentIndustry} Movies` : "Watch Movies Online for Free"}
+              {currentGenre !== "All"
+                ? `${currentGenre} Movies`
+                : currentDecade !== "All"
+                ? `${currentDecade} Cinema`
+                : "Browse Archival Feature Films"}
             </h1>
+            <p className="text-xs text-cinema-400 mt-1">
+              Every film is verified under Public Domain or Creative Commons open licenses
+            </p>
           </div>
 
           <div className="text-xs text-cinema-400">
-            Total <strong className="text-amber-400">{films.length}</strong> movies available
+            Total <strong className="text-amber-400">{films.length}</strong> verified films available
           </div>
         </div>
 
@@ -128,15 +134,15 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
                 type="text"
                 name="q"
                 defaultValue={currentQuery}
-                placeholder="Search movies by title, actors, directors..."
+                placeholder="Search by title, director, creator, or license..."
                 className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm rounded-xl bg-cinema-950 border border-cinema-750 text-cinema-100 placeholder:text-cinema-400 focus:outline-none focus:border-amber-400"
               />
             </div>
 
             {/* Preserve other filters when searching */}
-            {currentIndustry !== "All" && <input type="hidden" name="industry" value={currentIndustry} />}
             {currentGenre !== "All" && <input type="hidden" name="genre" value={currentGenre} />}
             {currentDecade !== "All" && <input type="hidden" name="decade" value={currentDecade} />}
+            {currentLicense !== "All" && <input type="hidden" name="license" value={currentLicense} />}
             {currentSort && <input type="hidden" name="sort" value={currentSort} />}
 
             <button
@@ -158,37 +164,40 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
             )}
           </form>
 
-          {/* Filter Pills: Industry (Hollywood, Bollywood, South Indian) */}
+          {/* Filter: License Type */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-cinema-400 uppercase tracking-wider">
-              <span>Industry</span>
+              <span>Verified License</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {INDUSTRIES.map((ind) => {
-                const isActive = (currentIndustry === "All" && ind === "All") || currentIndustry === ind;
-                const badgeColor =
-                  ind === "Bollywood"
-                    ? isActive ? "bg-emerald-400 text-black font-bold shadow-md shadow-emerald-950/40" : "bg-emerald-950/40 text-emerald-300 border border-emerald-800 hover:bg-emerald-900/50"
-                    : ind === "South Indian"
-                    ? isActive ? "bg-purple-400 text-black font-bold shadow-md shadow-purple-950/40" : "bg-purple-950/40 text-purple-300 border border-purple-800 hover:bg-purple-900/50"
-                    : ind === "Hollywood"
-                    ? isActive ? "bg-amber-400 text-black font-bold shadow-md shadow-amber-950/40" : "bg-amber-950/40 text-amber-300 border border-amber-800 hover:bg-amber-900/50"
-                    : isActive ? "bg-white text-black font-bold shadow-md" : "bg-cinema-850 hover:bg-cinema-750 text-cinema-300 border border-cinema-750";
-
+              {LICENSES.map((lic) => {
+                const isActive = (currentLicense === "All" && lic === "All") || currentLicense === lic;
                 return (
                   <Link
-                    key={ind}
-                    href={buildUrl({ industry: ind === "All" ? undefined : ind, page: 1 })}
-                    className={`text-xs px-3.5 py-1.5 rounded-lg transition-colors font-semibold ${badgeColor}`}
+                    key={lic}
+                    href={buildUrl({ license: lic === "All" ? undefined : lic, page: 1 })}
+                    className={`text-xs px-3 py-1.5 rounded-lg transition-colors font-medium ${
+                      isActive
+                        ? "bg-emerald-400 text-black font-bold shadow-md shadow-emerald-950/40"
+                        : "bg-cinema-850 hover:bg-cinema-750 text-cinema-300 border border-cinema-750"
+                    }`}
                   >
-                    {ind}
+                    {lic === "PD"
+                      ? "Public Domain (PD)"
+                      : lic === "CC0"
+                      ? "Creative Commons Zero (CC0)"
+                      : lic === "CC BY"
+                      ? "Attribution (CC BY)"
+                      : lic === "CC BY-SA"
+                      ? "Attribution-ShareAlike (CC BY-SA)"
+                      : "All Licenses"}
                   </Link>
                 );
               })}
             </div>
           </div>
 
-          {/* Filter Pills: Genres */}
+          {/* Filter: Genres */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-cinema-400 uppercase tracking-wider">
               <span>Genre</span>
@@ -213,7 +222,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
             </div>
           </div>
 
-          {/* Filter Pills: Decades */}
+          {/* Filter: Decades */}
           <div className="space-y-1.5 pt-1">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-cinema-400 uppercase tracking-wider">
               <span>Decade / Era</span>
@@ -252,7 +261,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
                   return (
                     <Link
                       key={opt.value}
-                      href={buildUrl({ sort: opt.value === "recent" ? undefined : opt.value, page: 1 })}
+                      href={buildUrl({ sort: opt.value === "popular" ? undefined : opt.value, page: 1 })}
                       className={`px-2.5 py-1 rounded text-xs transition-colors ${
                         isActive
                           ? "bg-amber-400 text-black font-bold"
@@ -277,12 +286,12 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
               ))}
             </div>
 
-            {/* Ad Placement: Between catalog rows if items exist */}
+            {/* Ad Placement */}
             <div className="my-8">
               <AdSlot placement="between-rows" />
             </div>
 
-            {/* Pagination Controls (Moviespedia / HDToday style) */}
+            {/* Pagination Controls */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-1.5 mt-8 pt-4 border-t border-cinema-800">
                 {currentPage > 1 ? (
@@ -340,7 +349,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
             <Filter className="w-12 h-12 text-cinema-500 mx-auto opacity-60" />
             <h3 className="text-lg font-bold text-white">No qualifying films found</h3>
             <p className="text-xs text-cinema-400 max-w-md mx-auto">
-              We couldn&apos;t find any public domain movies matching your current filters. Try resetting the filters or searching with a different term.
+              We couldn&apos;t find any verified archival films matching your current filters. Try resetting the filters or searching with a different term.
             </p>
             <Link
               href="/browse"
